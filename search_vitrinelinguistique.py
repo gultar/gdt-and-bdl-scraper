@@ -1,5 +1,57 @@
 import asyncio
 from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright
+
+def search_vitrinelinguistique(query):
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        context = browser.new_context()
+        page = context.new_page()
+
+        page.goto("https://vitrinelinguistique.oqlf.gouv.qc.ca/")
+
+        # Type the query into the search input field
+        page.type("#searchBannerField", query)
+
+        # Click the search button
+        page.click(".search-banner__submit")
+
+        # Extract information from each search result or return an empty array if no results are found
+        results = page.evaluate('''() => {
+                const noResultMessage = document.querySelector('.search-results-title');
+                if (noResultMessage && noResultMessage.innerText.includes("Aucun résultat")) {
+                    return [];
+                }
+
+                const resultItems = document.querySelectorAll('.search-results__item');
+                const resultData = [];
+
+                resultItems.forEach((item) => {
+                    const titleElement = item.querySelector('.result__title strong');
+                    const linkElement = item.querySelector('.result__title a');
+                    const summaryElement = item.querySelector('.result__summary');
+                    const domainElements = item.querySelectorAll('.result__domaines small');
+
+                    if (titleElement && linkElement && summaryElement && domainElements) {
+                        const term = titleElement.innerText.trim();
+                        const link = "https://vitrinelinguistique.oqlf.gouv.qc.ca/" + linkElement.getAttribute('href').trim();
+                        const description = summaryElement.innerText.trim();
+                        const domains = Array.from(domainElements).map(domain => domain.innerText.trim());
+
+                        resultData.push({ term, link, description, domains });
+                    }
+                });
+
+                return resultData;
+            }''')
+
+        # # Print the list of JSON objects
+        # for result in results:
+        #     print(result)
+
+        # Close the browser
+        browser.close()
+        return results
 
 async def search_vitrinelinguistique(query):
     async with async_playwright() as p:
